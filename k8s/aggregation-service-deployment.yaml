@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aggregation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aggregation-service
+  template:
+    metadata:
+      labels:
+        app: aggregation-service
+    spec:
+      containers:
+      - name: aggregation-service
+        image: ghcr.io/yourusername/aggregation_service:latest
+        env:
+        - name: RABBITMQ_HOST
+          value: "rabbitmq-service"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"

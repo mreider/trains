@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: passenger-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: passenger-service
+  template:
+    metadata:
+      labels:
+        app: passenger-service
+    spec:
+      containers:
+      - name: passenger-service
+        image: ghcr.io/yourusername/passenger_service:latest
+        env:
+        - name: RABBITMQ_HOST
+          value: "rabbitmq-service"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"

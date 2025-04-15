@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: train-management-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: train-management-service
+  template:
+    metadata:
+      labels:
+        app: train-management-service
+    spec:
+      containers:
+      - name: train-management-service
+        image: ghcr.io/yourusername/train_management_service:latest
+        env:
+        - name: RABBITMQ_HOST
+          value: "rabbitmq-service"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
