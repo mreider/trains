@@ -19,5 +19,4 @@ celery_app.conf.task_acks_late = True
 celery_app.conf.worker_prefetch_multiplier = 1
 
 # Ensure tasks are registered
-import passenger_service.app
 import app
