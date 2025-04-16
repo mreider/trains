@@ -36,9 +36,9 @@ All services interact with RabbitMQ using secure credentials (`admin/password`).
   +-------------+-------------+
   |             |             |
 [TrainService] [TicketService] [PassengerService]
-      ^             ^             ^
-      |             |             |
-      +------<---[messages]---<---+
+  ^             ^             ^
+  |             |             |
+  +------<---[messages]---<---+
                 |
      [TrainManagementService]
                 |
@@ -47,17 +47,17 @@ All services interact with RabbitMQ using secure credentials (`admin/password`).
 [messages]  [messages]  [messages]
       v          v          v
 [ScheduleQueue] [TicketQueue] [PassengerQueue]
-      \          |          /
-       \         |         /
-        +------> AggregationService <------+
-                     |
-                [messages]
-                     v
-             [ProcessingService]
-                     |
-                [messages]
-                     v
-             [NotificationService]
+      \          |                 /
+       \         |                /
+        +--> AggregationService <-+
+                 |
+            [messages]
+                 v
+         [ProcessingService]
+                 |
+            [messages]
+                 v
+         [NotificationService]
 ```
 - Proxy triggers /trigger endpoints of Train, Ticket, and Passenger services via HTTP.
 - TrainManagementService fans out management messages to all queues.
