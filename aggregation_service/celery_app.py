@@ -17,3 +17,9 @@ celery_app.conf.worker_prefetch_multiplier = 1
 
 # Ensure tasks are registered
 import app
+import train_service.app
+import ticket_service.app
+import passenger_service.app
+import train_management_service.app
+import aggregation_service.app
+import processing_service.app
