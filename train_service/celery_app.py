@@ -10,3 +10,6 @@ celery_app = Celery('train_service', broker=broker_url, backend='rpc://')
 # Optional: Celery config
 celery_app.conf.task_acks_late = True
 celery_app.conf.worker_prefetch_multiplier = 1
+
+# Ensure tasks are registered
+import app
