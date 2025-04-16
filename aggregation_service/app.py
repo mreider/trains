@@ -7,6 +7,32 @@ import sys
 from otel import tracer
 from opentelemetry.trace import SpanKind, Status, StatusCode
 import time
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/trigger', methods=['GET'])
+def trigger():
+    with tracer.start_as_current_span(
+        "http_trigger",
+        kind=SpanKind.SERVER,
+        attributes={
+            "service.name": os.getenv("SERVICE_NAME", "aggregation-service"),
+            "http.method": request.method,
+            "http.route": "/trigger",
+            "http.scheme": request.scheme,
+            "net.peer.ip": request.remote_addr,
+            "server.address": request.host,
+        },
+    ) as route_span:
+        try:
+            # Simulate trigger logic (customize as needed)
+            route_span.set_status(Status(StatusCode.OK))
+            return jsonify({"status": "AggregationService triggered"}), 200
+        except Exception as e:
+            route_span.set_status(Status(StatusCode.ERROR, str(e)))
+            route_span.set_attribute("error.type", type(e).__name__)
+            return jsonify({"error": str(e)}), 500
 
 @celery_app.task(name="aggregation_service.aggregate_and_publish")
 def aggregate_and_publish(schedule, ticket, passenger):
