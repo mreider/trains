@@ -26,6 +26,44 @@ RabbitMQ is used to manage message queues between services. The following queues
 
 All services interact with RabbitMQ using secure credentials (`admin/password`).
 
+#### Message Flow Diagram
+
+```
+              [Proxy]
+                |
+     HTTP /trigger to all core services
+                |
+  +-------------+-------------+
+  |             |             |
+[TrainService] [TicketService] [PassengerService]
+      ^             ^             ^
+      |             |             |
+      +------<---[messages]---<---+
+                |
+     [TrainManagementService]
+                |
+      +------>---+---<------+
+      |          |          |
+[messages]  [messages]  [messages]
+      v          v          v
+[ScheduleQueue] [TicketQueue] [PassengerQueue]
+      \          |          /
+       \         |         /
+        +------> AggregationService <------+
+                     |
+                [messages]
+                     v
+             [ProcessingService]
+                     |
+                [messages]
+                     v
+             [NotificationService]
+```
+- Proxy triggers /trigger endpoints of Train, Ticket, and Passenger services via HTTP.
+- TrainManagementService fans out management messages to all queues.
+- AggregationService fans in messages from all three queues.
+- Arrows represent asynchronous messages via RabbitMQ queues.
+
 ### Redis Usage
 
 Each service logs the last message it processed or produced to Redis, using a descriptive key (e.g., `train_service_last_message`, `aggregation_last_message`). This enables simple monitoring and debugging of the latest message state across the system. All services connect to Redis using a common password (`password`).
