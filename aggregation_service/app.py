@@ -61,7 +61,7 @@ def aggregate_and_publish(schedule, ticket, passenger):
             agg_span.set_attribute("error.type", type(exc).__name__)
             raise
 
-# No __main__ needed; Celery worker will process tasks
-
 if __name__ == "__main__":
-    main()
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    app.run(host="0.0.0.0", port=5000)

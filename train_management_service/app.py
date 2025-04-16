@@ -77,8 +77,7 @@ def consume_and_fanout(message):
             recv_span.set_attribute("error.type", type(exc).__name__)
             raise
 
-# No consumer thread or __main__ needed; Celery worker will process tasks
-
+# No consumer thread
 
 def publish_message():
     # For load testing, send a message to TrainManagementQueue
