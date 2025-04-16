@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: passenger-service
+  namespace: trains-demo
 spec:
   replicas: 1
   selector:
@@ -14,13 +15,24 @@ spec:
     spec:
       containers:
       - name: passenger-service
-        image: ghcr.io/yourusername/passenger_service:latest
+        image: ghcr.io/mreider/passenger_service:latest
+        imagePullPolicy: Always
         env:
         - name: RABBITMQ_HOST
-          value: "rabbitmq-service"
+          value: "rabbitmq"
         - name: RABBITMQ_PORT
           value: "5672"
         - name: REDIS_HOST
-          value: "redis-service"
+          value: "redis"
         - name: REDIS_PORT
           value: "6379"
+        - name: DT_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-otel-secrets
+              key: DT_ENDPOINT
+        - name: DT_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-otel-secrets
+              key: DT_API_TOKEN

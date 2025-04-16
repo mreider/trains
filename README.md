@@ -4,14 +4,14 @@ This demo application is built using a microservice architecture and demonstrate
 
 ### Services
 
-- **TrainService**: Publishes train schedule updates to the `ScheduleQueue`.
-- **TicketService**: Sends ticket booking messages to the `TicketQueue`.
-- **PassengerService**: Sends passenger details to the `PassengerQueue`.
-- **TrainManagementService**: Listens on its own queue and fans out messages to `ScheduleQueue`, `TicketQueue`, and `PassengerQueue`.
-- **AggregationService**: Aggregates messages from `ScheduleQueue`, `TicketQueue`, and `PassengerQueue` and publishes the combined data to the `AggregationQueue`.
-- **ProcessingService**: Processes aggregated data from the `AggregationQueue` and produces notifications, sending them to the `NotificationQueue`.
-- **NotificationService**: Consumes messages from the `NotificationQueue` to simulate sending notifications.
-- **Proxy**: Generates load on the system by triggering the above services via HTTP endpoints (`/trigger`).
+- **TrainService**: Publishes train schedule updates (including train ID, departure/arrival times, and route) to the `ScheduleQueue` and saves the last published schedule to Redis.
+- **TicketService**: Sends ticket booking messages (ticket ID, train ID, passenger ID, seat number, departure time) to the `TicketQueue` and saves the last ticket message to Redis.
+- **PassengerService**: Sends passenger details (passenger ID, name, contact info) to the `PassengerQueue` and saves the last passenger message to Redis.
+- **TrainManagementService**: Consumes management messages (operations like schedule updates) from its queue, fans out these messages to `ScheduleQueue`, `TicketQueue`, and `PassengerQueue`, and saves the last management message to Redis.
+- **AggregationService**: Aggregates messages from `ScheduleQueue`, `TicketQueue`, and `PassengerQueue` (combining schedule, ticket, and passenger info into a single message) and publishes the aggregated data to the `AggregationQueue`. The last aggregated message is saved to Redis.
+- **ProcessingService**: Consumes aggregated messages (with schedule, ticket, and passenger info) from the `AggregationQueue` and produces notification messages (passenger ID, notification text) to the `NotificationQueue`. The last processed aggregated message is saved to Redis.
+- **NotificationService**: Consumes notification messages (passenger ID, notification text) from the `NotificationQueue` to simulate sending notifications and saves the last notification to Redis.
+- **Proxy**: Generates load on the system by triggering the `/trigger` endpoints of the above services via HTTP requests.
 
 ### Messaging with RabbitMQ
 
@@ -28,7 +28,7 @@ All services interact with RabbitMQ using secure credentials (`admin/password`).
 
 ### Redis Usage
 
-Redis is used by each service to log the last processed message for simple monitoring and debugging. All services connect to Redis using a common password (`password`).
+Each service logs the last message it processed or produced to Redis, using a descriptive key (e.g., `train_service_last_message`, `aggregation_last_message`). This enables simple monitoring and debugging of the latest message state across the system. All services connect to Redis using a common password (`password`).
 
 ### Deployment
 

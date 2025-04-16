@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
+  namespace: trains-demo
 spec:
   replicas: 1
   selector:
@@ -15,6 +16,7 @@ spec:
       containers:
       - name: redis
         image: redis:6
+        imagePullPolicy: Always
         command: ["redis-server", "--requirepass", "password"]
         ports:
         - containerPort: 6379

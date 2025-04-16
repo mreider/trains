@@ -1,31 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: processing-service
+  name: proxy-service
   namespace: trains-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: processing-service
+      app: proxy-service
   template:
     metadata:
       labels:
-        app: processing-service
+        app: proxy-service
     spec:
       containers:
-      - name: processing-service
-        image: ghcr.io/mreider/processing_service:latest
+      - name: proxy-service
+        image: ghcr.io/mreider/proxy:latest
         imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
         env:
-        - name: RABBITMQ_HOST
-          value: "rabbitmq"
-        - name: RABBITMQ_PORT
-          value: "5672"
-        - name: REDIS_HOST
-          value: "redis"
-        - name: REDIS_PORT
-          value: "6379"
         - name: DT_ENDPOINT
           valueFrom:
             secretKeyRef:

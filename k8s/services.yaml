@@ -1,0 +1,117 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: train-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: train-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aggregation-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: aggregation-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: passenger-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: passenger-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: trains-demo
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: trains-demo
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - protocol: TCP
+      port: 5672
+      targetPort: 5672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: processing-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: processing-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: ticket-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: train-management-service
+  namespace: trains-demo
+spec:
+  selector:
+    app: train-management-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
