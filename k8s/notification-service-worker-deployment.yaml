@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service-worker
+  labels:
+    app: notification-service-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service-worker
+  template:
+    metadata:
+      labels:
+        app: notification-service-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/mreider/notification_service:latest
+          command: ["celery", "-A", "celery_app.celery_app", "worker", "--loglevel=info"]
+          env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            # Add any other necessary env vars here

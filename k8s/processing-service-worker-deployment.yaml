@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processing-service-worker
+  labels:
+    app: processing-service-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: processing-service-worker
+  template:
+    metadata:
+      labels:
+        app: processing-service-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/mreider/processing_service:latest
+          command: ["celery", "-A", "celery_app.celery_app", "worker", "--loglevel=info"]
+          env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            # Add any other necessary env vars here

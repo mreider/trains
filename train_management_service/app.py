@@ -1,6 +1,6 @@
 import os
 import json
-import pika
+from celery_app import celery_app
 import redis
 import threading
 import random
@@ -13,91 +13,69 @@ app = Flask(__name__)
 
 import time
 
-def consumer():
-    rabbit_host = os.getenv("RABBITMQ_HOST", "rabbitmq")
-    rabbit_port = int(os.getenv("RABBITMQ_PORT", "5672"))
+@celery_app.task(name="train_management_service.consume_and_fanout")
+def consume_and_fanout(message):
     redis_host = os.getenv("REDIS_HOST", "redis")
     redis_port = int(os.getenv("REDIS_PORT", "6379"))
-    while True:
+    with tracer.start_as_current_span(
+        "receive_train_management_message",
+        kind=SpanKind.CLIENT,
+        attributes={
+            "messaging.operation": "receive",
+            "messaging.destination.name": "TrainManagementQueue",
+            "messaging.message.id": message.get("message_id", "unknown"),
+            "messaging.message.conversation_id": message.get("conversation_id", "unknown"),
+        },
+    ) as recv_span:
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials("admin", "password")))
-            channel = connection.channel()
-            channel.queue_declare(queue='TrainManagementQueue', durable=True)
-            for q in ['ScheduleQueue', 'TicketQueue', 'PassengerQueue']:
-                channel.queue_declare(queue=q, durable=True)
-
-            def callback(ch, method, properties, body):
+            # Random error injection for message processing
+            if random.random() < 0.12:
+                raise RuntimeError("Simulated message processing error")
+            for queue, mod, task_name in [
+                ("ScheduleQueue", "train_service.app", "send_schedule_update"),
+                ("TicketQueue", "ticket_service.app", "publish_ticket"),
+                ("PassengerQueue", "passenger_service.app", "publish_passenger")
+            ]:
                 with tracer.start_as_current_span(
-                    "receive_train_management_message",
-                    kind=SpanKind.CLIENT,
+                    f"send_fanout_{queue}",
+                    kind=SpanKind.PRODUCER,
                     attributes={
-                        "messaging.operation": "receive",
-                        "messaging.destination.name": "TrainManagementQueue",
-                        "messaging.message.id": getattr(properties, "message_id", None) or "unknown",
-                        "messaging.message.conversation_id": getattr(properties, "correlation_id", None) or "unknown",
-                        "server.address": rabbit_host,
+                        "messaging.operation": "send",
+                        "messaging.destination.name": queue,
+                        "messaging.message.id": f"fanout-{random.randint(1000,9999)}",
+                        "messaging.message.conversation_id": message.get("conversation_id", "unknown"),
                     },
-                ) as recv_span:
-                    try:
-                        message = json.loads(body)
-                        # otel_logger.info("TrainManagementService: Received management message", attributes={"messaging.message.id": getattr(properties, "message_id", None) or "unknown",})
-                        # Random error injection for message processing
-                        if random.random() < 0.12:
-                            raise RuntimeError("Simulated message processing error")
-                        for queue in ['ScheduleQueue', 'TicketQueue', 'PassengerQueue']:
-                            with tracer.start_as_current_span(
-                                f"send_fanout_{queue}",
-                                kind=SpanKind.PRODUCER,
-                                attributes={
-                                    "messaging.operation": "send",
-                                    "messaging.destination.name": queue,
-                                    "messaging.message.id": f"fanout-{random.randint(1000,9999)}",
-                                    "server.address": rabbit_host,
-                                    "messaging.message.conversation_id": getattr(properties, "correlation_id", None) or "unknown",
-                                },
-                            ) as send_span:
-                                channel.basic_publish(exchange='', routing_key=queue, body=json.dumps(message))
-                                # otel_logger.info(f"TrainManagementService: Fanned out message to {queue}")
-                                send_span.set_status(Status(StatusCode.OK))
-                        ch.basic_ack(delivery_tag=method.delivery_tag)
-                        # Redis operation
-                        with tracer.start_as_current_span(
-                            "redis_set_last_message",
-                            kind=SpanKind.CLIENT,
-                            attributes={
-                                "db.system": "redis",
-                                "db.operation.name": "SET",
-                                "db.query.text": "SET train_management_last_message ...",
-                                "network.peer.address": redis_host,
-                                "db.namespace": "0"
-                            },
-                        ) as db_span:
-                            try:
-                                r = redis.Redis(host=redis_host, port=redis_port, password="password")
-                                r.set("train_management_last_message", json.dumps(message))
-                                db_span.set_status(Status(StatusCode.OK))
-                            except Exception as exc:
-                                db_span.set_status(Status(StatusCode.ERROR, str(exc)))
-                                db_span.set_attribute("error.type", type(exc).__name__)
-                                # otel_logger.error(f"Error saving to Redis: {exc}", attributes={"error.type": type(exc).__name__})
-                                raise
-                        recv_span.set_status(Status(StatusCode.OK))
-                    except Exception as exc:
-                        recv_span.set_status(Status(StatusCode.ERROR, str(exc)))
-                        recv_span.set_attribute("error.type", type(exc).__name__)
-                        # otel_logger.error(f"Error processing management message: {exc}", attributes={"error.type": type(exc).__name__})
-                        raise
+                ) as send_span:
+                    mod_ref = __import__(mod, fromlist=[task_name])
+                    task = getattr(mod_ref, task_name)
+                    task.delay(message)
+                    send_span.set_status(Status(StatusCode.OK))
+            # Redis operation
+            with tracer.start_as_current_span(
+                "redis_set_last_message",
+                kind=SpanKind.CLIENT,
+                attributes={
+                    "db.system": "redis",
+                    "db.operation.name": "SET",
+                    "db.query.text": "SET train_management_last_message ...",
+                    "db.namespace": "0"
+                },
+            ) as db_span:
+                try:
+                    r = redis.Redis(host=redis_host, port=redis_port, password="password")
+                    r.set("train_management_last_message", json.dumps(message))
+                    db_span.set_status(Status(StatusCode.OK))
+                except Exception as exc:
+                    db_span.set_status(Status(StatusCode.ERROR, str(exc)))
+                    db_span.set_attribute("error.type", type(exc).__name__)
+                    raise
+            recv_span.set_status(Status(StatusCode.OK))
+        except Exception as exc:
+            recv_span.set_status(Status(StatusCode.ERROR, str(exc)))
+            recv_span.set_attribute("error.type", type(exc).__name__)
+            raise
 
-            channel.basic_consume(queue='TrainManagementQueue', on_message_callback=callback)
-            print("TrainManagementService: Consumer started, waiting for messages...", flush=True)
-            channel.start_consuming()
-        except KeyboardInterrupt:
-            print("TrainManagementService: Shutting down...", flush=True)
-            break
-        except Exception as e:
-            print(f"TrainManagementService: Error occurred: {e}", flush=True, file=sys.stdout)
-            time.sleep(5)  # Sleep before retrying after error
-
+# No consumer thread or __main__ needed; Celery worker will process tasks
 
 
 def publish_message():

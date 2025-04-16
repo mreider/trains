@@ -1,6 +1,6 @@
 import os
 import json
-import pika
+from celery_app import celery_app
 import redis
 import random
 import sys
@@ -10,48 +10,30 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 app = Flask(__name__)
 
-def publish_message():
-    rabbit_host = os.getenv("RABBITMQ_HOST", "rabbitmq")
-    rabbit_port = int(os.getenv("RABBITMQ_PORT", "5672"))
+@celery_app.task(name="passenger_service.publish_passenger")
+def publish_passenger(message):
     redis_host = os.getenv("REDIS_HOST", "redis")
     redis_port = int(os.getenv("REDIS_PORT", "6379"))
-    message_id = f"msg-{random.randint(1000,9999)}"
-    conversation_id = f"conv-{random.randint(100,999)}"
-
     with tracer.start_as_current_span(
         "publish_passenger_message",
         kind=SpanKind.PRODUCER,
         attributes={
             "messaging.operation": "send",
             "messaging.destination.name": "PassengerQueue",
-            "messaging.message.id": message_id,
-            "messaging.message.conversation_id": conversation_id,
-            "server.address": rabbit_host,
+            "messaging.message.id": message.get("message_id", "unknown"),
+            "messaging.message.conversation_id": message.get("conversation_id", "unknown"),
         },
     ) as msg_span:
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials("admin", "password")))
-            channel = connection.channel()
-            channel.queue_declare(queue='PassengerQueue', durable=True)
-            message = {
-                "passenger_id": "789",
-                "name": "John Doe",
-                "contact_info": "john.doe@example.com",
-                "message_id": message_id,
-                "conversation_id": conversation_id
-            }
             # Random error injection for messaging
             if random.random() < 0.15:
                 raise RuntimeError("Simulated messaging failure")
-            channel.basic_publish(exchange='', routing_key='PassengerQueue', body=json.dumps(message))
+            # In Celery, the message is already delivered
             msg_span.set_status(Status(StatusCode.OK))
         except Exception as exc:
             msg_span.set_status(Status(StatusCode.ERROR, str(exc)))
             msg_span.set_attribute("error.type", type(exc).__name__)
             raise
-        finally:
-            if 'connection' in locals():
-                connection.close()
     # Redis operation
     with tracer.start_as_current_span(
         "redis_set_last_message",
@@ -60,7 +42,6 @@ def publish_message():
             "db.system": "redis",
             "db.operation.name": "SET",
             "db.query.text": "SET passenger_service_last_message ...",
-            "network.peer.address": redis_host,
             "db.namespace": "0"
         },
     ) as db_span:
@@ -94,7 +75,16 @@ def trigger():
             # Random error injection for HTTP
             if random.random() < 0.10:
                 raise ValueError("Simulated HTTP error")
-            publish_message()
+            message_id = f"msg-{random.randint(1000,9999)}"
+            conversation_id = f"conv-{random.randint(100,999)}"
+            message = {
+                "passenger_id": "789",
+                "name": "John Doe",
+                "contact_info": "john.doe@example.com",
+                "message_id": message_id,
+                "conversation_id": conversation_id
+            }
+            publish_passenger.delay(message)
             route_span.set_status(Status(StatusCode.OK))
             return jsonify({"status": "PassengerService triggered"}), 200
         except Exception as e:
