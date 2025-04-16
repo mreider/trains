@@ -14,10 +14,12 @@ def process_aggregated(aggregated):
     redis_port = int(os.getenv("REDIS_PORT", "6379"))
     with tracer.start_as_current_span(
         "receive_aggregation_message",
-        kind=SpanKind.CLIENT,
+        kind=SpanKind.CONSUMER,
         attributes={
+            "messaging.system": "rabbitmq",
+            "messaging.destination": "AggregationQueue",
+            "messaging.destination_kind": "queue",
             "messaging.operation": "receive",
-            "messaging.destination.name": "AggregationQueue",
             "messaging.message.id": aggregated.get("message_id", "unknown"),
             "messaging.message.conversation_id": aggregated.get("conversation_id", "unknown"),
         },
@@ -36,8 +38,7 @@ def process_aggregated(aggregated):
                 "message": f"Your train (ID: {aggregated.get('train_id')}) is scheduled to depart at {aggregated.get('schedule', {}).get('departure_time', '')} from {aggregated.get('schedule', {}).get('route', [''])[0]}."
             }
             # Send notification as Celery task
-            from notification_service.app import process_notification
-            process_notification.delay(notification)
+            celery_app.send_task("notification_service.process_notification", args=[notification])
             # Redis operation
             with tracer.start_as_current_span(
                 "redis_set_last_message",
@@ -65,5 +66,3 @@ def process_aggregated(aggregated):
 
 # No __main__ needed; Celery worker will process tasks
 
-if __name__ == "__main__":
-    main()

@@ -19,10 +19,12 @@ def consume_and_fanout(message):
     redis_port = int(os.getenv("REDIS_PORT", "6379"))
     with tracer.start_as_current_span(
         "receive_train_management_message",
-        kind=SpanKind.CLIENT,
+        kind=SpanKind.CONSUMER,
         attributes={
+            "messaging.system": "rabbitmq",
+            "messaging.destination": "TrainManagementQueue",
+            "messaging.destination_kind": "queue",
             "messaging.operation": "receive",
-            "messaging.destination.name": "TrainManagementQueue",
             "messaging.message.id": message.get("message_id", "unknown"),
             "messaging.message.conversation_id": message.get("conversation_id", "unknown"),
         },
@@ -31,10 +33,10 @@ def consume_and_fanout(message):
             # Random error injection for message processing
             if random.random() < 0.12:
                 raise RuntimeError("Simulated message processing error")
-            for queue, mod, task_name in [
-                ("ScheduleQueue", "train_service.app", "send_schedule_update"),
-                ("TicketQueue", "ticket_service.app", "publish_ticket"),
-                ("PassengerQueue", "passenger_service.app", "publish_passenger")
+            for queue, task_name in [
+                ("ScheduleQueue", "train_service.send_schedule_update"),
+                ("TicketQueue", "ticket_service.publish_ticket"),
+                ("PassengerQueue", "passenger_service.publish_passenger")
             ]:
                 with tracer.start_as_current_span(
                     f"send_fanout_{queue}",
@@ -151,6 +153,4 @@ def trigger():
             return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    t = threading.Thread(target=consumer, daemon=True)
-    t.start()
     app.run(host="0.0.0.0", port=5000)

@@ -19,6 +19,9 @@ def aggregate_and_publish(schedule, ticket, passenger):
             "aggregation.has_schedule": bool(schedule),
             "aggregation.has_ticket": bool(ticket),
             "aggregation.has_passenger": bool(passenger),
+            "messaging.system": "rabbitmq",
+            "messaging.destination": "AggregationQueue",
+            "messaging.destination_kind": "queue",
         },
     ) as agg_span:
         try:
@@ -32,8 +35,7 @@ def aggregate_and_publish(schedule, ticket, passenger):
                 "passengers": [passenger] if passenger else []
             }
             # Publish to AggregationQueue as a Celery task
-            from processing_service.app import process_aggregated
-            process_aggregated.delay(aggregated)
+            celery_app.send_task("processing_service.process_aggregated", args=[aggregated])
             # Redis operation
             with tracer.start_as_current_span(
                 "redis_set_last_message",
@@ -60,24 +62,6 @@ def aggregate_and_publish(schedule, ticket, passenger):
             raise
 
 # No __main__ needed; Celery worker will process tasks
-                        except Exception as exc:
-                            agg_span.set_status(Status(StatusCode.ERROR, str(exc)))
-                            agg_span.set_attribute("error.type", type(exc).__name__)
-                            # otel_logger.error(f"Error during aggregation: {exc}", attributes={"error.type": type(exc).__name__})
-                            raise
-                else:
-                    # otel_logger.info("AggregationService: No messages available to aggregate.")
-                    time.sleep(5)  # Sleep before retrying if no messages
-                connection.close()
-        except KeyboardInterrupt:
-            print("AggregationService: Shutting down...", flush=True)
-            break
-        except Exception as e:
-            # otel_logger.error(f"AggregationService: Error occurred: {e}", attributes={"error.type": type(e).__name__})
-            print(f"AggregationService: Error occurred: {e}", flush=True, file=sys.stdout)
-            time.sleep(5)  # Sleep before retrying after error
-
-
 
 if __name__ == "__main__":
     main()

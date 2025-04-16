@@ -19,8 +19,10 @@ def send_schedule_update(message):
         "publish_schedule_message",
         kind=SpanKind.PRODUCER,
         attributes={
+            "messaging.system": "rabbitmq",
+            "messaging.destination": "ScheduleQueue",
+            "messaging.destination_kind": "queue",
             "messaging.operation": "send",
-            "messaging.destination.name": "ScheduleQueue",
             "messaging.message.id": message.get("message_id", "unknown"),
             "messaging.message.conversation_id": message.get("conversation_id", "unknown"),
         },

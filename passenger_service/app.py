@@ -18,8 +18,10 @@ def publish_passenger(message):
         "publish_passenger_message",
         kind=SpanKind.PRODUCER,
         attributes={
+            "messaging.system": "rabbitmq",
+            "messaging.destination": "PassengerQueue",
+            "messaging.destination_kind": "queue",
             "messaging.operation": "send",
-            "messaging.destination.name": "PassengerQueue",
             "messaging.message.id": message.get("message_id", "unknown"),
             "messaging.message.conversation_id": message.get("conversation_id", "unknown"),
         },
