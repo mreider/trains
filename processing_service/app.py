@@ -36,7 +36,7 @@ def main():
                     try:
                         aggregated = json.loads(body)
                         # Random error injection for message processing
-                        if random.random() < 0.12:
+                        if random.random() < 0.0001:
                             raise RuntimeError("Simulated message processing error")
                         passengers = aggregated.get("passengers", [{}])
                         if passengers and len(passengers) > 0:

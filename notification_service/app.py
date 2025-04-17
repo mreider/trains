@@ -35,7 +35,7 @@ def main():
                     try:
                         notification = json.loads(body)
                         # Random error injection for notification processing
-                        if random.random() < 0.12:
+                        if random.random() < 0.001:
                             raise RuntimeError("Simulated notification processing error")
                         ch.basic_ack(delivery_tag=method.delivery_tag)
                         # Redis operation

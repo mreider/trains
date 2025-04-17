@@ -42,7 +42,7 @@ def consumer():
                         message = json.loads(body)
                         # otel_logger.info("TrainManagementService: Received management message", attributes={"messaging.message.id": getattr(properties, "message_id", None) or "unknown",})
                         # Random error injection for message processing
-                        if random.random() < 0.12:
+                        if random.random() < 0.001:
                             raise RuntimeError("Simulated message processing error")
                         for queue in ['ScheduleQueue', 'TicketQueue', 'PassengerQueue']:
                             with tracer.start_as_current_span(
@@ -131,7 +131,7 @@ def publish_message():
                 "conversation_id": conversation_id
             }
             # Random error injection for messaging
-            if random.random() < 0.15:
+            if random.random() < 0.001:
                 raise RuntimeError("Simulated messaging failure")
             channel.basic_publish(exchange='', routing_key='TrainManagementQueue', body=json.dumps(message))
             # otel_logger.info("TrainManagementService: Sent message to TrainManagementQueue", attributes={"messaging.message.id": message_id})
@@ -161,7 +161,7 @@ def trigger():
     ) as route_span:
         try:
             # Random error injection for HTTP
-            if random.random() < 0.10:
+            if random.random() < 0.001:
                 raise ValueError("Simulated HTTP error")
             publish_message()
             route_span.set_status(Status(StatusCode.OK))

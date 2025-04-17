@@ -48,7 +48,7 @@ def main():
                     ) as agg_span:
                         try:
                             # Random error injection for aggregation
-                            if random.random() < 0.13:
+                            if random.random() < 0.001:
                                 raise RuntimeError("Simulated aggregation error")
                             schedule = json.loads(schedule_body) if schedule_body else {}
                             ticket = json.loads(ticket_body) if ticket_body else {}

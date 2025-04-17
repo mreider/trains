@@ -43,7 +43,7 @@ def publish_message():
                 "conversation_id": conversation_id
             }
             # Random error injection for messaging
-            if random.random() < 0.15:
+            if random.random() < 0.001:
                 raise RuntimeError("Simulated messaging failure")
             channel.basic_publish(exchange='', routing_key='ScheduleQueue', body=json.dumps(message))
             # otel_logger.info("TrainService: Sent schedule update message", attributes={"messaging.message.id": message_id})
@@ -73,7 +73,7 @@ def publish_message():
         try:
             r = redis.Redis(host=redis_host, port=redis_port, password="password")
             # Random error injection for Redis
-            if random.random() < 0.10:
+            if random.random() < 0.001:
                 raise redis.RedisError("Simulated Redis failure")
             r.set("train_service_last_message", json.dumps(message))
             db_span.set_status(Status(StatusCode.OK))
@@ -101,7 +101,7 @@ def trigger():
     ) as route_span:
         try:
             # Random error injection for HTTP
-            if random.random() < 0.10:
+            if random.random() < 0.001:
                 raise ValueError("Simulated HTTP error")
             publish_message()
             route_span.set_status(Status(StatusCode.OK))
