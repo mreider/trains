@@ -1,8 +1,4 @@
-## Train Ticket Booking Demo
-
-This demo application is built using a microservice architecture and demonstrates an event-driven system using RabbitMQ and Redis on Kubernetes.
-
-### Services
+## Train Ticket "Fan out / Fan in" demo
 
 - **TrainService**: Publishes train schedule updates (including train ID, departure/arrival times, and route) to the `ScheduleQueue` and saves the last published schedule to Redis.
 - **TicketService**: Sends ticket booking messages (ticket ID, train ID, passenger ID, seat number, departure time) to the `TicketQueue` and saves the last ticket message to Redis.
@@ -66,9 +62,4 @@ All services interact with RabbitMQ using secure credentials (`admin/password`).
 
 ### Redis Usage
 
-Each service logs the last message it processed or produced to Redis, using a descriptive key (e.g., `train_service_last_message`, `aggregation_last_message`). This enables simple monitoring and debugging of the latest message state across the system. All services connect to Redis using a common password (`password`).
-
-### Deployment
-
-- **Docker**: Each service has its own Dockerfile for containerization.
-- **Kubernetes**: Deployment manifests are provided for each microservice, as well as RabbitMQ and Redis, ensuring seamless deployment in a Kubernetes environment.
+Each service logs the last message it processed or produced to Redis, using a descriptive key (e.g., `train_service_last_message`, `aggregation_last_message`).
