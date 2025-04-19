@@ -33,31 +33,43 @@ def main():
                     },
                 ) as recv_span:
                     try:
-                        notification = json.loads(body)
-                        # Random error injection for notification processing
-                        if random.random() < 0.001:
-                            raise RuntimeError("Simulated notification processing error")
-                        ch.basic_ack(delivery_tag=method.delivery_tag)
-                        # Redis operation
                         with tracer.start_as_current_span(
-                            "redis_set_last_message",
-                            kind=SpanKind.CLIENT,
+                            "process_notification_message",
+                            kind=SpanKind.CONSUMER,
                             attributes={
-                                "db.system": "redis",
-                                "db.operation.name": "SET",
-                                "db.query.text": "SET notification_last_message ...",
-                                "network.peer.address": redis_host,
-                                "db.namespace": "0"
+                                "messaging.operation": "process",
+                                "messaging.destination.name": "NotificationQueue",
+                                "messaging.message.id": getattr(properties, "message_id", None) or "unknown",
+                                "server.address": rabbit_host,
+                                "messaging.message.conversation_id": getattr(properties, "correlation_id", None) or "unknown",
                             },
-                        ) as db_span:
-                            try:
-                                r = redis.Redis(host=redis_host, port=redis_port, password="password")
-                                r.set("notification_last_message", json.dumps(notification))
-                                db_span.set_status(Status(StatusCode.OK))
-                            except Exception as exc:
-                                db_span.set_status(Status(StatusCode.ERROR, str(exc)))
-                                db_span.set_attribute("error.type", type(exc).__name__)
-                                raise
+                        ) as process_span:
+                            notification = json.loads(body)
+                            # Random error injection for notification processing
+                            if random.random() < 0.001:
+                                raise RuntimeError("Simulated notification processing error")
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            # Redis operation
+                            with tracer.start_as_current_span(
+                                "redis_set_last_message",
+                                kind=SpanKind.CLIENT,
+                                attributes={
+                                    "db.system": "redis",
+                                    "db.operation.name": "SET",
+                                    "db.query.text": "SET notification_last_message ...",
+                                    "network.peer.address": redis_host,
+                                    "db.namespace": "0"
+                                },
+                            ) as db_span:
+                                try:
+                                    r = redis.Redis(host=redis_host, port=redis_port, password="password")
+                                    r.set("notification_last_message", json.dumps(notification))
+                                    db_span.set_status(Status(StatusCode.OK))
+                                except Exception as exc:
+                                    db_span.set_status(Status(StatusCode.ERROR, str(exc)))
+                                    db_span.set_attribute("error.type", type(exc).__name__)
+                                    raise
+                            process_span.set_status(Status(StatusCode.OK))
                         recv_span.set_status(Status(StatusCode.OK))
                     except Exception as exc:
                         recv_span.set_status(Status(StatusCode.ERROR, str(exc)))

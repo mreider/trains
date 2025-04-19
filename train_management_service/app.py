@@ -39,48 +39,60 @@ def consumer():
                     },
                 ) as recv_span:
                     try:
-                        message = json.loads(body)
-                        # otel_logger.info("TrainManagementService: Received management message", attributes={"messaging.message.id": getattr(properties, "message_id", None) or "unknown",})
-                        # Random error injection for message processing
-                        if random.random() < 0.001:
-                            raise RuntimeError("Simulated message processing error")
-                        for queue in ['ScheduleQueue', 'TicketQueue', 'PassengerQueue']:
-                            with tracer.start_as_current_span(
-                                f"send_fanout_{queue}",
-                                kind=SpanKind.PRODUCER,
-                                attributes={
-                                    "messaging.operation": "send",
-                                    "messaging.destination.name": queue,
-                                    "messaging.message.id": f"fanout-{random.randint(1000,9999)}",
-                                    "server.address": rabbit_host,
-                                    "messaging.message.conversation_id": getattr(properties, "correlation_id", None) or "unknown",
-                                },
-                            ) as send_span:
-                                channel.basic_publish(exchange='', routing_key=queue, body=json.dumps(message))
-                                # otel_logger.info(f"TrainManagementService: Fanned out message to {queue}")
-                                send_span.set_status(Status(StatusCode.OK))
-                        ch.basic_ack(delivery_tag=method.delivery_tag)
-                        # Redis operation
                         with tracer.start_as_current_span(
-                            "redis_set_last_message",
-                            kind=SpanKind.CLIENT,
+                            "process_train_management_message",
+                            kind=SpanKind.CONSUMER,
                             attributes={
-                                "db.system": "redis",
-                                "db.operation.name": "SET",
-                                "db.query.text": "SET train_management_last_message ...",
-                                "network.peer.address": redis_host,
-                                "db.namespace": "0"
+                                "messaging.operation": "process",
+                                "messaging.destination.name": "TrainManagementQueue",
+                                "messaging.message.id": getattr(properties, "message_id", None) or "unknown",
+                                "messaging.message.conversation_id": getattr(properties, "correlation_id", None) or "unknown",
+                                "server.address": rabbit_host,
                             },
-                        ) as db_span:
-                            try:
-                                r = redis.Redis(host=redis_host, port=redis_port, password="password")
-                                r.set("train_management_last_message", json.dumps(message))
-                                db_span.set_status(Status(StatusCode.OK))
-                            except Exception as exc:
-                                db_span.set_status(Status(StatusCode.ERROR, str(exc)))
-                                db_span.set_attribute("error.type", type(exc).__name__)
-                                # otel_logger.error(f"Error saving to Redis: {exc}", attributes={"error.type": type(exc).__name__})
-                                raise
+                        ) as process_span:
+                            message = json.loads(body)
+                            # otel_logger.info("TrainManagementService: Received management message", attributes={"messaging.message.id": getattr(properties, "message_id", None) or "unknown",})
+                            # Random error injection for message processing
+                            if random.random() < 0.001:
+                                raise RuntimeError("Simulated message processing error")
+                            for queue in ['ScheduleQueue', 'TicketQueue', 'PassengerQueue']:
+                                with tracer.start_as_current_span(
+                                    f"send_fanout_{queue}",
+                                    kind=SpanKind.PRODUCER,
+                                    attributes={
+                                        "messaging.operation": "send",
+                                        "messaging.destination.name": queue,
+                                        "messaging.message.id": f"fanout-{random.randint(1000,9999)}",
+                                        "server.address": rabbit_host,
+                                        "messaging.message.conversation_id": getattr(properties, "correlation_id", None) or "unknown",
+                                    },
+                                ) as send_span:
+                                    channel.basic_publish(exchange='', routing_key=queue, body=json.dumps(message))
+                                    # otel_logger.info(f"TrainManagementService: Fanned out message to {queue}")
+                                    send_span.set_status(Status(StatusCode.OK))
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            # Redis operation
+                            with tracer.start_as_current_span(
+                                "redis_set_last_message",
+                                kind=SpanKind.CLIENT,
+                                attributes={
+                                    "db.system": "redis",
+                                    "db.operation.name": "SET",
+                                    "db.query.text": "SET train_management_last_message ...",
+                                    "network.peer.address": redis_host,
+                                    "db.namespace": "0"
+                                },
+                            ) as db_span:
+                                try:
+                                    r = redis.Redis(host=redis_host, port=redis_port, password="password")
+                                    r.set("train_management_last_message", json.dumps(message))
+                                    db_span.set_status(Status(StatusCode.OK))
+                                except Exception as exc:
+                                    db_span.set_status(Status(StatusCode.ERROR, str(exc)))
+                                    db_span.set_attribute("error.type", type(exc).__name__)
+                                    # otel_logger.error(f"Error saving to Redis: {exc}", attributes={"error.type": type(exc).__name__})
+                                    raise
+                            process_span.set_status(Status(StatusCode.OK))
                         recv_span.set_status(Status(StatusCode.OK))
                     except Exception as exc:
                         recv_span.set_status(Status(StatusCode.ERROR, str(exc)))
